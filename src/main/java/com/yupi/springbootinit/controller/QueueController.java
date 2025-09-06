@@ -33,7 +33,7 @@ public class QueueController {
         CompletableFuture.runAsync(() -> {
             log.info("任务执行中：" + name + "，执行人：" + Thread.currentThread().getName());
             try {
-                Thread.sleep(600000);
+                Thread.sleep(10000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

@@ -33,7 +33,7 @@ public class MultiConsumer {
                     System.out.println(" [x] Received '" + "编号:" + finalI + ":" + message + "'");
                     channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                     // 停 20 秒，模拟机器处理能力有限
-                    Thread.sleep(20000);
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, false);
