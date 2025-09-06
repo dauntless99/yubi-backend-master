@@ -1,0 +1,141 @@
+spring:
+  application:
+    name: yubi-backend
+  # 默认 dev 环境
+  profiles:
+    active: dev
+  # 支持 swagger3
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  # session 配置
+  session:
+    # todo 取消注释开启分布式 session（须先配置 Redis）
+    # store-type: redis
+    # 30 天过期
+    timeout: 2592000
+  # 数据库配置
+  # todo 需替换配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/yubi
+    username: root
+    password: 123456
+  # Redis 配置
+  # todo 需替换配置，然后取消注释
+  redis:
+    database: 1
+    host: localhost
+    port: 6379
+    timeout: 5000
+  # Elasticsearch 配置
+  # todo 需替换配置，然后取消注释
+#  elasticsearch:
+#    uris: http://localhost:9200
+#    username: root
+#    password: 123456
+  # 文件上传
+  servlet:
+    multipart:
+      # 大小限制
+      max-file-size: 10MB
+  rabbitmq:
+    host: localhost
+    port: 5672
+    password: guest
+    username: guest
+server:
+  address: 0.0.0.0
+  port: 8080
+  servlet:
+    context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000
+  zipkin:
+    base-url: http://localhost:9411/ # Zipkin服务地址（本地部署或Docker部署）
+    sender:
+      type: web # 以HTTP方式发送链路数据（生产环境可改kafka/rabbitmq，避免数据丢失）
+  sleuth:
+    sampler:
+      probability: 0.1 # 采样率（0.1=10%，生产环境避免100%采样影响性能，测试环境可设1.0）
+    baggage:
+      remote-fields: taskId # 传递自定义字段（如taskId，便于链路关联任务）
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除的实体字段名
+      logic-delete-value: 1 # 逻辑已删除值（默认为 1）
+      logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
+
+
+# 微信相关
+wx:
+  # 微信公众平台
+  # todo 需替换配置
+  mp:
+    token: xxx
+    aesKey: xxx
+    appId: xxx
+    secret: xxx
+    config-storage:
+      http-client-type: HttpClient
+      key-prefix: wx
+      redis:
+        host: 127.0.0.1
+        port: 6379
+      type: Memory
+  # 微信开放平台
+  # todo 需替换配置
+  open:
+    appId: xxx
+    appSecret: xxx
+# 对象存储
+# todo 需替换配置
+cos:
+  client:
+    accessKey: xxx
+    secretKey: xxx
+    region: xxx
+    bucket: xxx
+# 鱼聪明 AI 配置（https://yucongming.com/）
+yuapi:
+  client:
+    access-key: 替换为你自己的 access-key
+    secret-key: 替换为你自己的 secret-key
+## 讯飞 AI 配置
+xun-fei:
+  client:
+    appId: 7830c61e  # 替换为你的应用ID
+    apiSecret: ZmJjZjVlNTEwOTViZGIzNmY3NzVkN2Rk  # 替换为对应服务的apiSecret
+    apiKey: e2ca76cbe5be8db186083f9100d58727  # 替换为对应服务的apiKey
+
+easy-es:
+  compatible: true # 兼容模式开关,默认为false,若您的es客户端版本小于8.x,务必设置为true才可正常使用,8.x及以上则可忽略此项配置
+  enable: true #默认为true,若为false则认为不启用本框架
+  address : 127.0.0.1:9200 # es的连接地址,必须含端口 若为集群,则可以用逗号隔开 例如:127.0.0.1:9200,127.0.0.2:9200
+  username: elastic #若无 则可省略此行配置
+  password: elatsic #若无 则可省略此行配置
+
+
+# 2. 配置暴露Metrics端点（application.yml）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info # 暴露prometheus端点（/actuator/prometheus）
+  metrics:
+    tags:
+      application: yubi-data-platform # 给指标加应用标签，便于多服务区分
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    health:
+      show-details: always # 显示健康详情（如MQ连接状态）
+
+

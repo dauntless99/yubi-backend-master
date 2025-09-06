@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Aug 24 12:47:00 CST 2025
+elasticsearch-cli-7.17.4.jar>tencent=
+elasticsearch-cli-7.17.4.pom>tencent=
