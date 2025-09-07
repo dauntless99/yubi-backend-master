@@ -40,6 +40,8 @@ public class BiMessageConsumer {
     @RabbitListener(queues = {BiMqConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         System.out.println("消息已开始处理");
+//        System.out.println("手动死信队列调试");
+//        channel.basicNack(deliveryTag, false, false);
         log.info("receiveMessage message = {}", message);
         try {
             if (StringUtils.isBlank(message)) {
@@ -122,10 +124,12 @@ public class BiMessageConsumer {
 //            channel.basicNack(deliveryTag, false, false);
 //            handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
 //        }
+//            channel.basicNack(deliveryTag, false, false);
             // 消息确认
             channel.basicAck(deliveryTag, false);
+
         } catch (BusinessException e) {
-            // 非可重试异常（如消息格式错误）：直接拒绝，不重试
+
             channel.basicNack(deliveryTag, false, false);
         } catch (Exception e) {
             // 可重试异常（如网络波动）：抛出异常触发重试
