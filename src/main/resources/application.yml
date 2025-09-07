@@ -44,6 +44,13 @@ spring:
     port: 5672
     password: guest
     username: guest
+    listener:
+      simple:
+        retry:
+          enabled: true # 开启重试
+          max-attempts: 3 # 最大重试次数（含首次消费）
+          initial-interval: 1000ms # 首次重试间隔
+          multiplier: 2 # 重试间隔乘数（1000ms → 2000ms → 4000ms）
 server:
   address: 0.0.0.0
   port: 8080

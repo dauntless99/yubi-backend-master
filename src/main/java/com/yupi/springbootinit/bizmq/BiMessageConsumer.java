@@ -18,6 +18,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -40,58 +41,57 @@ public class BiMessageConsumer {
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         System.out.println("消息已开始处理");
         log.info("receiveMessage message = {}", message);
-        if (StringUtils.isBlank(message)) {
-            // 如果失败，消息拒绝
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "消息为空");
-        }
+        try {
+            if (StringUtils.isBlank(message)) {
+                // 如果失败，消息拒绝
+                channel.basicNack(deliveryTag, false, false);
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "消息为空");
+            }
 //        JSONObject jsonObject= new JSONObject();
-        //JSONObject jsonObject = JSONUtil.parseObj(message);
-        //Long chartId = jsonObject.getLong("chartId");
-        Chart chart = chartService.getById(message);
+            //JSONObject jsonObject = JSONUtil.parseObj(message);
+            //Long chartId = jsonObject.getLong("chartId");
+            Chart chart = chartService.getById(message);
 //        Chart chart = chartService.getById(chartId);
-        if (chart == null) {
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
-        }
-
-        //异步调AI开始，是优化还是冗余设计？
-        // todo 建议处理任务队列满了后，抛异常的情况
-        CompletableFuture.runAsync(() -> {
-// 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
-            Chart updateChart = new Chart();
-            updateChart.setId(chart.getId());
-            updateChart.setStatus("running");
-            boolean b = chartService.updateById(updateChart);
-            if (!b) {
-                handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                return;
+            if (chart == null) {
+                channel.basicNack(deliveryTag, false, false);
+                throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
             }
-// 调用 AI
-            String result = aiManager.sendMsgToXingHuo (true, buildUserInput(chart));
-            String[] splits = result.split("'【【【【'");
-            if (splits.length < 3) {
-                handleChartUpdateError(chart.getId(), "AI 生成错误");
-                return;
-            }
-            String genChart = splits[1].trim();
-            String genResult = splits[2].trim();
-            Chart updateChartResult = new Chart();
-            updateChartResult.setId(chart.getId());
-            updateChartResult.setGenChart(genChart);
-            updateChartResult.setGenResult(genResult);
-// todo 建议定义状态为枚举值
-            updateChartResult.setStatus("succeed");
-            boolean updateResult = chartService.updateById(updateChartResult);
-            if (!updateResult) {
-                handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-            }
-        }, threadPoolExecutor);
-        //异步结束
 
+            //异步调AI开始，是优化还是冗余设计？
+            // todo 建议处理任务队列满了后，抛异常的情况
+            CompletableFuture.runAsync(() -> {
+    // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
+                Chart updateChart = new Chart();
+                updateChart.setId(chart.getId());
+                updateChart.setStatus("running");
+                boolean b = chartService.updateById(updateChart);
+                if (!b) {
+                    handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
+                    return;
+                }
+    // 调用 AI
+                String result = aiManager.sendMsgToXingHuo (true, buildUserInput(chart));
+                String[] splits = result.split("'【【【【'");
+                if (splits.length < 3) {
+                    handleChartUpdateError(chart.getId(), "AI 生成错误");
+                    return;
+                }
+                String genChart = splits[1].trim();
+                String genResult = splits[2].trim();
+                Chart updateChartResult = new Chart();
+                updateChartResult.setId(chart.getId());
+                updateChartResult.setGenChart(genChart);
+                updateChartResult.setGenResult(genResult);
+    // todo 建议定义状态为枚举值
+                updateChartResult.setStatus("succeed");
+                boolean updateResult = chartService.updateById(updateChartResult);
+                if (!updateResult) {
+                    handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+                }
+            }, threadPoolExecutor);
+            //异步结束
 
-
-        // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
+            // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
 //        Chart updateChart = new Chart();
 //        updateChart.setId(chart.getId());
 //        updateChart.setStatus("running");
@@ -122,8 +122,17 @@ public class BiMessageConsumer {
 //            channel.basicNack(deliveryTag, false, false);
 //            handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
 //        }
-        // 消息确认
-        channel.basicAck(deliveryTag, false);
+            // 消息确认
+            channel.basicAck(deliveryTag, false);
+        } catch (BusinessException e) {
+            // 非可重试异常（如消息格式错误）：直接拒绝，不重试
+            channel.basicNack(deliveryTag, false, false);
+        } catch (Exception e) {
+            // 可重试异常（如网络波动）：抛出异常触发重试
+            log.error("消息处理失败", e);
+            // 拒绝消息，转发到死信队列（requeue = false）
+            channel.basicNack(deliveryTag, false, false);
+        }
     }
 
     /**
